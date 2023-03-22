@@ -1,0 +1,11 @@
+{
+  "DSN": "ipdb_read_user:PASSWORD@unix(/var/lib/mysql/mysql.sock)/ipdb",
+  "autofg_tag": "autofg",
+  "rest_key": "FG API USER KEY",
+  "fortigates": [
+    {
+      "name": "fg-cluster",
+      "addr": "10.20.30.40"
+    }
+  ]
+}
