@@ -1,0 +1,8 @@
+github.com/ShyLionTjmn/dbtools v0.0.0-20230321140043-d46ac02434e3 h1:b79JK/dYJji5P834fb98Cj3JFGJ5H764XlF+qfh8nXQ=
+github.com/ShyLionTjmn/dbtools v0.0.0-20230321140043-d46ac02434e3/go.mod h1:QuKiYsvTSq+P2/jWPCXrBwnutq0+NFo1mzmBFnyw5oA=
+github.com/ShyLionTjmn/m v0.0.0-20230321135634-504b1e7786d1 h1:ARHfkYKxEEUGV7tMyMgrRy8us1hnCIVGydviPmc5Img=
+github.com/ShyLionTjmn/m v0.0.0-20230321135634-504b1e7786d1/go.mod h1:5rMDTw1/cekG95cWbnquQXnSVbC2E6JKU9fzkr8iyts=
+github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
+github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/go-sql-driver/mysql v1.7.0 h1:ueSltNNllEqE3qcWBTD0iQd3IpL/6U+mJxLkazJ7YPc=
+github.com/go-sql-driver/mysql v1.7.0/go.mod h1:OXbVy3sEdcQ2Doequ6Z5BW6fXNQTmx+9S1MCJN5yJMI=
