@@ -56,6 +56,9 @@ func main() {
   var err error
   var opt_C string
   var opt_y bool
+  var opt_v bool
+
+  now := time.Now().Format("2006.01.02 15:04:05 ")
 
   good_hostname := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_\-\.]*[a-zA-Z0-9]$`)
   bad_hostname := regexp.MustCompile(`^(?i:reserve|dhcp.*pool|dhcp.*start|dhcp.*end|dhcp.*beg|dhcp.*stop)`)
@@ -66,7 +69,13 @@ func main() {
 
   flag.StringVar(&opt_C, "C", DEFAULT_CONFIG_FILE, "Config file location")
   flag.BoolVar(&opt_y, "y", false, "Really make changes")
+  flag.BoolVar(&opt_v, "v", false, "Verbose")
   flag.Parse()
+
+  if opt_v {
+    fmt.Println(now)
+    log.Println("Reading config")
+  }
 
   var conf_json []byte
   if conf_json, err = os.ReadFile(opt_C); err != nil { log.Fatal(err.Error()) }
@@ -77,11 +86,19 @@ func main() {
   var db *sql.DB
   var query string
 
+  if opt_v {
+    log.Println("Connecting to DB")
+  }
+
   if db, err = sql.Open("mysql", config.Db_dsn); err != nil { log.Fatal(err.Error()) }
   defer db.Close()
 
   query = "SELECT tag_id FROM tags WHERE tag_api_name=?"
   if rows, err = Return_query_A(db, query, config.Autofg_tag); err != nil { log.Fatal(err.Error()) }
+
+  if opt_v {
+    log.Println("Fetched", len(rows), "tags")
+  }
 
   if len(rows) != 1 { log.Fatal("No \"" + config.Autofg_tag + "\" tag in DB\n") }
 
@@ -97,6 +114,10 @@ func main() {
   var ranges []M
   if ranges, err = Return_query_A(db, query, reg); err != nil { panic(err) }
 
+  if opt_v {
+    log.Println("Fetched", len(ranges), "nets")
+  }
+
   query = "SELECT INET_NTOA(v4ip_addr) AS ip, iv_value AS hostname FROM ((v4nets" +
           " INNER JOIN v4ips ON v4ip_fk_v4net_id = v4net_id)" +
           " INNER JOIN i4vs ON iv_fk_v4ip_id = v4ip_id)" +
@@ -106,6 +127,10 @@ func main() {
 
   var db_ips M
   if db_ips, err = Return_query_M(db, query, "ip", reg); err != nil { panic(err) }
+
+  if opt_v {
+    log.Println("Fetched", len(db_ips), "ips")
+  }
 
   for ip, _ := range db_ips {
     hostname := db_ips.Vs(ip, "hostname")
@@ -163,9 +188,14 @@ func main() {
     }
     req_url := "https://" + fg.Addr + "/api/v2/cmdb/firewall/address/?access_token=" + config.Rest_key +
            "&format=name|comment|subnet" +
+           "&with_meta=1" +
            //"&filter=type=@ipmask" +
            "&filter=subnet=@%20255.255.255.255" +
            ""
+    if opt_v {
+      log.Println("Connecting to ", fg.Addr, " FG")
+    }
+
     req, err := http.NewRequest("GET", req_url, nil)
     if err != nil { panic(err) }
     req.Header.Add("Content-type", "application/json")
@@ -183,6 +213,10 @@ func main() {
 
     fg_names := M{}
 
+    if opt_v {
+      log.Println("Fetched", len(fg_addresses.VA("results").([]interface{})), "addresses")
+    }
+
     for _, fg_addr_i := range fg_addresses.VA("results").([]interface{}) {
       fg_addr := fg_addr_i.(M)
       if strings.HasSuffix(fg_addr.Vs("subnet"), " 255.255.255.255") {
@@ -190,6 +224,7 @@ func main() {
         fg_ips[ip] = M{
           "fg_name": fg_addr.Vs("name"),
           "comment": fg_addr.Vs("comment"),
+          "q_ref": fg_addr.Vs("q_ref"),
         }
 
         fg_names[fg_addr.Vs("name")] = fg_addr
@@ -198,6 +233,7 @@ func main() {
 
     rename_queue := []M{}
     add_queue := []M{}
+    del_queue := []M{}
 
     for ip, _ := range fg_ips {
       ipu, var_ok := V4ip2long(ip)
@@ -214,16 +250,25 @@ func main() {
            !lock_comment.MatchString(fg_ips.Vs(ip, "comment")) &&
            !strings.HasPrefix(fg_ips.Vs(ip, "fg_name"), "!") &&
         true {
-          new_name := "!" + fg_ips.Vs(ip, "fg_name")
+          // delete or rename if used
 
-          if fg_names[new_name] == nil {
-            rename_queue = append(rename_queue, M{
-              "old_name": fg_ips.Vs(ip, "fg_name"),
-              "new_name": new_name,
+          if fg_ips.Vs(ip, "q_ref") == "0" {
+            del_queue  = append(del_queue, M{
+              "name": fg_ips.Vs(ip, "fg_name"),
               "ip": ip,
             })
           } else {
-            fmt.Fprintln(os.Stderr, fg.Name, ": Rename conflict: ", ip)
+            new_name := "!" + fg_ips.Vs(ip, "fg_name")
+
+            if fg_names[new_name] == nil {
+              rename_queue = append(rename_queue, M{
+                "old_name": fg_ips.Vs(ip, "fg_name"),
+                "new_name": new_name,
+                "ip": ip,
+              })
+            } else {
+              fmt.Fprintln(os.Stderr, now, fg.Name, ": Rename conflict: ", ip)
+            }
           }
         }
       } else {
@@ -242,7 +287,7 @@ func main() {
               "ip": ip,
             })
           } else {
-            fmt.Fprintln(os.Stderr, fg.Name, ": Rename conflict: ", ip)
+            fmt.Fprintln(os.Stderr, now, fg.Name, ": Rename conflict: ", ip)
           }
         }
       }
@@ -257,9 +302,48 @@ func main() {
             "ip": ip,
           })
         } else {
-          fmt.Fprintln(os.Stderr, fg.Name, ": Add name conflict: ", ip)
+          fmt.Fprintln(os.Stderr, now, fg.Name, ": Add name conflict: ", ip)
         }
       }
+    }
+
+    if opt_v {
+      log.Println("Delete", len(del_queue), "addresses")
+    }
+
+    for _, entry := range del_queue {
+      req_url := "https://" + fg.Addr + "/api/v2/cmdb/firewall/address/" +
+             url.PathEscape(entry.Vs("name")) +
+             "?access_token=" + config.Rest_key +
+             ""
+
+      req, err := http.NewRequest("DELETE", req_url, nil)
+      if err != nil { panic(err) }
+      req.Header.Add("Content-type", "application/json")
+
+      if !opt_y {
+        fmt.Println(now, fg.Name, ": WOULD delete: ", entry.Vs("name"))
+        continue
+      }
+
+      fmt.Println(now, fg.Name, ": delete: ", entry.Vs("name"))
+
+      var resp *http.Response
+      if resp, err = client.Do(req); err != nil { panic(err) }
+
+      var resp_json []byte
+      if resp_json, err = io.ReadAll(resp.Body); err != nil { panic(err) }
+
+      var fg_resp M
+      if err = json.Unmarshal(resp_json, &fg_resp); err != nil { panic(err) }
+
+      if fg_resp.Vs("status") != "success" {
+        fmt.Fprintln(os.Stderr, now, fg.Name, ": DELETE ERROR: " + string(resp_json))
+      }
+    }
+
+    if opt_v {
+      log.Println("Rename", len(rename_queue), "addresses")
     }
 
     for _, entry := range rename_queue {
@@ -289,9 +373,12 @@ func main() {
       if err != nil { panic(err) }
       req.Header.Add("Content-type", "application/json")
 
-      fmt.Println(fg.Name, ": rename: ", entry.Vs("old_name"), " to: ", entry.Vs("new_name"))
+      if !opt_y {
+        fmt.Println(now, fg.Name, ": WOULD rename: ", entry.Vs("old_name"), " to: ", entry.Vs("new_name"))
+        continue
+      }
 
-      if !opt_y { continue }
+      fmt.Println(now, fg.Name, ": rename: ", entry.Vs("old_name"), " to: ", entry.Vs("new_name"))
 
       var resp *http.Response
       if resp, err = client.Do(req); err != nil { panic(err) }
@@ -303,9 +390,13 @@ func main() {
       if err = json.Unmarshal(resp_json, &fg_resp); err != nil { panic(err) }
 
       if fg_resp.Vs("status") != "success" {
-        fmt.Fprintln(os.Stderr, fg.Name, ": query: " + string(send_bytes))
-        fmt.Fprintln(os.Stderr, fg.Name, ": PUT ERROR: " + string(resp_json))
+        fmt.Fprintln(os.Stderr, now, fg.Name, ": query: " + string(send_bytes))
+        fmt.Fprintln(os.Stderr, now, fg.Name, ": PUT ERROR: " + string(resp_json))
       }
+    }
+
+    if opt_v {
+      log.Println("Rename", len(add_queue), "addresses")
     }
 
     for _, entry := range add_queue {
@@ -330,9 +421,12 @@ func main() {
       if err != nil { panic(err) }
       req.Header.Add("Content-type", "application/json")
 
-      fmt.Println(fg.Name, ": add: ", entry.Vs("new_name"))
+      if !opt_y {
+        fmt.Println(now, fg.Name, ": WOULD add: ", entry.Vs("new_name"))
+        continue
+      }
 
-      if !opt_y { continue }
+      fmt.Println(now, fg.Name, ": add: ", entry.Vs("new_name"))
 
       var resp *http.Response
       if resp, err = client.Do(req); err != nil { panic(err) }
@@ -344,8 +438,8 @@ func main() {
       if err = json.Unmarshal(resp_json, &fg_resp); err != nil { panic(err) }
 
       if fg_resp.Vs("status") != "success" {
-        fmt.Fprintln(os.Stderr, fg.Name, ": query: " + string(send_bytes))
-        fmt.Fprintln(os.Stderr, fg.Name, ": POST ERROR: " + string(resp_json))
+        fmt.Fprintln(os.Stderr, now, fg.Name, ": query: " + string(send_bytes))
+        fmt.Fprintln(os.Stderr, now, fg.Name, ": POST ERROR: " + string(resp_json))
       }
     }
   }
