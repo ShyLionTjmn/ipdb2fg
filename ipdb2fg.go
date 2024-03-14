@@ -26,13 +26,12 @@ const DEFAULT_CONFIG_FILE = "/etc/ipdb/ipdb.config"
 type FG struct {
   Name string `json:"name"`
   Addr string `json:"addr"`
+  Rest_key string `json:"rest_key"`
 }
 
 type Config struct {
   Db_dsn string `json:"DSN"`
   Autofg_tag string `json:"autofg_tag"`
-  Rest_user string `json:"rest_user"`
-  Rest_key string `json:"rest_key"`
   Fortigates []FG `json:"fortigates"`
 }
 
@@ -186,7 +185,7 @@ func main() {
       Timeout: 5*time.Second,
       Transport: tr,
     }
-    req_url := "https://" + fg.Addr + "/api/v2/cmdb/firewall/address/?access_token=" + config.Rest_key +
+    req_url := "https://" + fg.Addr + "/api/v2/cmdb/firewall/address/?access_token=" + fg.Rest_key +
            "&format=name|comment|subnet" +
            "&with_meta=1" +
            //"&filter=type=@ipmask" +
@@ -207,7 +206,10 @@ func main() {
     if resp_json, err = io.ReadAll(resp.Body); err != nil { panic(err) }
 
     var fg_addresses M
-    if err = json.Unmarshal(resp_json, &fg_addresses); err != nil { panic(err) }
+    if err = json.Unmarshal(resp_json, &fg_addresses); err != nil {
+      fmt.Println(string(resp_json))
+      panic(err)
+    }
 
     fg_ips := M{}
 
@@ -264,6 +266,7 @@ func main() {
               rename_queue = append(rename_queue, M{
                 "old_name": fg_ips.Vs(ip, "fg_name"),
                 "new_name": new_name,
+                "old_comment": fg_ips.Vs(ip, "comment"),
                 "ip": ip,
               })
             } else {
@@ -314,7 +317,7 @@ func main() {
     for _, entry := range del_queue {
       req_url := "https://" + fg.Addr + "/api/v2/cmdb/firewall/address/" +
              url.PathEscape(entry.Vs("name")) +
-             "?access_token=" + config.Rest_key +
+             "?access_token=" + fg.Rest_key +
              ""
 
       req, err := http.NewRequest("DELETE", req_url, nil)
@@ -349,7 +352,7 @@ func main() {
     for _, entry := range rename_queue {
       req_url := "https://" + fg.Addr + "/api/v2/cmdb/firewall/address/" +
              url.PathEscape(entry.Vs("old_name")) +
-             "?access_token=" + config.Rest_key +
+             "?access_token=" + fg.Rest_key +
              ""
 
       comment := entry.Vs("old_comment")
@@ -401,7 +404,7 @@ func main() {
 
     for _, entry := range add_queue {
       req_url := "https://" + fg.Addr + "/api/v2/cmdb/firewall/address/" +
-             "?access_token=" + config.Rest_key +
+             "?access_token=" + fg.Rest_key +
              ""
       send_data := M{
         "name": entry.Vs("new_name"),
