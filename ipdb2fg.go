@@ -1,24 +1,25 @@
 package main
 
 import (
-  "log"
-  "fmt"
-  "flag"
-  "time"
-  "os"
-  "regexp"
-  "encoding/json"
-  "database/sql"
-  "net/http"
-  "net/url"
-  "crypto/tls"
-  "io"
-  "strings"
-  "strconv"
-  "bytes"
-  _ "github.com/go-sql-driver/mysql"
-  . "github.com/ShyLionTjmn/m"
-  . "github.com/ShyLionTjmn/dbtools"
+	"bytes"
+	"crypto/tls"
+	"database/sql"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"net/url"
+	"os"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+
+	. "github.com/ShyLionTjmn/dbtools"
+	. "github.com/ShyLionTjmn/m"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 const DEFAULT_CONFIG_FILE = "/etc/ipdb/ipdb.config"
@@ -185,7 +186,7 @@ func main() {
       Timeout: 5*time.Second,
       Transport: tr,
     }
-    req_url := "https://" + fg.Addr + "/api/v2/cmdb/firewall/address/?access_token=" + fg.Rest_key +
+    req_url := fg.Addr + "/api/v2/cmdb/firewall/address/?access_token=" + fg.Rest_key +
            "&format=name|comment|subnet" +
            "&with_meta=1" +
            //"&filter=type=@ipmask" +
@@ -315,7 +316,7 @@ func main() {
     }
 
     for _, entry := range del_queue {
-      req_url := "https://" + fg.Addr + "/api/v2/cmdb/firewall/address/" +
+      req_url := fg.Addr + "/api/v2/cmdb/firewall/address/" +
              url.PathEscape(entry.Vs("name")) +
              "?access_token=" + fg.Rest_key +
              ""
@@ -350,7 +351,7 @@ func main() {
     }
 
     for _, entry := range rename_queue {
-      req_url := "https://" + fg.Addr + "/api/v2/cmdb/firewall/address/" +
+      req_url := fg.Addr + "/api/v2/cmdb/firewall/address/" +
              url.PathEscape(entry.Vs("old_name")) +
              "?access_token=" + fg.Rest_key +
              ""
@@ -399,11 +400,11 @@ func main() {
     }
 
     if opt_v {
-      log.Println("Rename", len(add_queue), "addresses")
+      log.Println("Add", len(add_queue), "addresses")
     }
 
     for _, entry := range add_queue {
-      req_url := "https://" + fg.Addr + "/api/v2/cmdb/firewall/address/" +
+      req_url := fg.Addr + "/api/v2/cmdb/firewall/address/" +
              "?access_token=" + fg.Rest_key +
              ""
       send_data := M{
