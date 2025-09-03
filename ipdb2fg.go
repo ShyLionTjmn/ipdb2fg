@@ -461,6 +461,7 @@ func main() {
   true {
     for _, email := range config.Ipdb2fg_notify {
       if email != "" {
+        fmt.Println(now, "Sending alerts to:", email)
         message := mail.NewMsg()
         if err = message.From(config.Mail_from_ipdb2fg); err != nil { panic(err) }
         if err := message.To(email); err != nil { panic(err) }
