@@ -285,6 +285,19 @@ func main() {
             }
           }
         }
+        if in_range &&
+           !lock_comment.MatchString(fg_ips.Vs(ip, "comment")) &&
+           ipdb_comment.MatchString(fg_ips.Vs(ip, "comment")) &&
+           strings.HasPrefix(fg_ips.Vs(ip, "fg_name"), "!") &&
+           fg_ips.Vs(ip, "q_ref") == "0" &&
+        true {
+          // delete unused previuosly used
+
+          del_queue  = append(del_queue, M{
+            "name": fg_ips.Vs(ip, "fg_name"),
+            "ip": ip,
+          })
+        }
       } else {
         if !lock_comment.MatchString(fg_ips.Vs(ip, "comment")) &&
         db_ips.Evs(ip, "db_name") &&
