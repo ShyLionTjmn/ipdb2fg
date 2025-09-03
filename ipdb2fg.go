@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+  "github.com/wneessen/go-mail"
 
 	. "github.com/ShyLionTjmn/dbtools"
 	. "github.com/ShyLionTjmn/m"
@@ -34,6 +35,10 @@ type Config struct {
   Db_dsn string `json:"DSN"`
   Autofg_tag string `json:"autofg_tag"`
   Fortigates []FG `json:"fortigates"`
+  Mail_host string `json:"mail_host"`
+  Mail_port int `json:"mail_port"`
+  Mail_from_ipdb2fg string `json:"mail_from_ipdb2fg"`
+  Ipdb2fg_notify []string `json:"ipdb2fg_notify"`
 }
 
 func V4ip2long(str string) (uint32, bool) {
@@ -57,6 +62,8 @@ func main() {
   var opt_C string
   var opt_y bool
   var opt_v bool
+
+  alerts := make([]string, 0)
 
   now := time.Now().Format("2006.01.02 15:04:05 ")
 
@@ -264,6 +271,7 @@ func main() {
             new_name := "!" + fg_ips.Vs(ip, "fg_name")
 
             if fg_names[new_name] == nil {
+              alerts = append(alerts, "Cannot delete used ip: " + ip + ", renaming")
               rename_queue = append(rename_queue, M{
                 "old_name": fg_ips.Vs(ip, "fg_name"),
                 "new_name": new_name,
@@ -444,6 +452,37 @@ func main() {
       if fg_resp.Vs("status") != "success" {
         fmt.Fprintln(os.Stderr, now, fg.Name, ": query: " + string(send_bytes))
         fmt.Fprintln(os.Stderr, now, fg.Name, ": POST ERROR: " + string(resp_json))
+      }
+    }
+  }
+
+  if len(alerts) > 0 && config.Mail_host != "" && config.Mail_from_ipdb2fg != "" && config.Ipdb2fg_notify != nil &&
+     len(config.Ipdb2fg_notify) != 0 && config.Mail_port != 0 &&
+  true {
+    for _, email := range config.Ipdb2fg_notify {
+      if email != "" {
+        message := mail.NewMsg()
+        if err = message.From(config.Mail_from_ipdb2fg); err != nil { panic(err) }
+        if err := message.To(email); err != nil { panic(err) }
+
+        message.Subject("IPDB2FG Alerts")
+
+        message.SetBodyString(mail.TypeTextPlain, strings.Join(alerts, "\n"))
+
+        var client *mail.Client
+
+        client, err = mail.NewClient(config.Mail_host,
+          mail.WithPort(int(config.Mail_port)),
+          mail.WithoutNoop(),
+        )
+
+        if err != nil { panic(err) }
+
+        client.SetTLSPolicy(mail.NoTLS)
+
+        err = client.DialAndSend(message)
+        if err != nil { panic(err) }
+
       }
     }
   }
