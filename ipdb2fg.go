@@ -271,7 +271,9 @@ func main() {
             new_name := "!" + fg_ips.Vs(ip, "fg_name")
 
             if fg_names[new_name] == nil {
-              alerts = append(alerts, "Cannot delete used ip: " + ip + ", renaming")
+              alerts = append(alerts, "Cannot delete used ip: " + ip +
+                " on " + fg.Name + " (" + fg.Addr + "), renaming" +
+                "")
               rename_queue = append(rename_queue, M{
                 "old_name": fg_ips.Vs(ip, "fg_name"),
                 "new_name": new_name,
