@@ -69,8 +69,8 @@ func main() {
 
   good_hostname := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_\-\.]*[a-zA-Z0-9]$`)
   bad_hostname := regexp.MustCompile(`^(?i:reserve|dhcp.*pool|dhcp.*start|dhcp.*end|dhcp.*beg|dhcp.*stop)`)
-  ipdb_comment := regexp.MustCompile(`(?i:\Wipdb\W)`)
-  lock_comment := regexp.MustCompile(`(?i:\Wlock\W)`)
+  ipdb_comment := regexp.MustCompile(`(?i:(?:^|\W)ipdb(?:\W|$))`)
+  lock_comment := regexp.MustCompile(`(?i:(?:^|\W)lock(?:\W|$))`)
 
   var config Config
 
