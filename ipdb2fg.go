@@ -284,8 +284,7 @@ func main() {
               fmt.Fprintln(os.Stderr, now, fg.Name, ": Rename conflict: ", ip)
             }
           }
-        }
-        if in_range &&
+        } else if in_range &&
            !lock_comment.MatchString(fg_ips.Vs(ip, "comment")) &&
            ipdb_comment.MatchString(fg_ips.Vs(ip, "comment")) &&
            strings.HasPrefix(fg_ips.Vs(ip, "fg_name"), "!") &&
